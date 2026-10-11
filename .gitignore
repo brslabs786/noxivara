@@ -1,0 +1,63 @@
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Virtual environments
+.venv/
+venv/
+ENV/
+env/
+
+# Large Datasets & Experiments (DO NOT PUSH TO GITHUB - GIGABYTES)
+data/
+datasets/
+experiments/
+scratch/
+diagnostic_eval/
+final_evaluation/
+
+# Large Model Checkpoints
+*.pth
+*.pt
+*.onnx
+*.bin
+
+# Loose images in root directory (use samples/ instead)
+/*.png
+/*.jpg
+/*.jpeg
+/*.webp
+
+# Temporary & Evaluation Generated Images
+restored_*.png
+restored_*.jpg
+final_*.png
+final_*.jpg
+test_*.png
+test_*.jpg
+v3_*.png
+v3_*.jpg
+*_comparison.png
+*_comparison.jpg
+scale_test_*.png
+stage*_results.png
+validation_test.png
+degradation_comparison.png
+desk_refinement_comparison.png
+forward_diffusion.png
+--model
+
+# Uploads buffer (keep folder with .gitkeep)
+static/uploads/*
+!static/uploads/.gitkeep
+
+# System & IDE files
+*.log
+.DS_Store
+.idea/
+.vscode/
+
+# SQLite Databases
+feedback_db/*.sqlite
+feedback_db/*.sqlite-journal

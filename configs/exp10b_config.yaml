@@ -1,0 +1,36 @@
+# configs/exp10b_config.yaml
+# ==========================
+# Reproducible configuration for Experiment 10b:
+# Active Dual-Branch Restoration Network (Fixing Exp10 detail branch deadlock).
+
+# ── Data ──────────────────────────────────────────────────────────────────────
+lol_root:    "data/LOL/our485"
+div2k_root:  "data/div2k_images"
+
+# ── Warm-start Checkpoint (NEVER modified) ────────────────────────────────────
+warmstart_ckpt: "experiments/experiment_10_final/checkpoints/best.pth"
+
+# ── Output Directory ──────────────────────────────────────────────────────────
+out_dir: "experiments/experiment_10b_active_dual"
+
+# ── Training Hyperparameters ──────────────────────────────────────────────────
+batch_size:           8
+num_workers:          0       # 0 = safe on Apple Silicon MPS
+max_epochs:           15      # detail branch fine-tuning converges rapidly
+early_stop_patience:  5
+
+# ── Dual-Learning Rates ───────────────────────────────────────────────────────
+# Gentle fine-tuning for trained illumination backbone to prevent destabilisation;
+# Active learning rate for detail branch and alpha to learn high-frequency recovery.
+lr_illum:     0.00002        # 2e-5 (illumination branch + encoder)
+lr_detail:    0.0002         # 2e-4 (detail branch + alpha)
+weight_decay: 0.00001
+
+# ── Detail Branch Activation ──────────────────────────────────────────────────
+init_alpha:   0.10           # initial gating scalar (learnable)
+detail_std:   0.01           # initial weight std for detail_final
+
+# ── Loss Weights ──────────────────────────────────────────────────────────────
+w_l1:    0.55                # robust reconstruction
+w_ssim:  0.35                # structural similarity
+w_edge:  0.10                # Sobel edge gradient loss (supervises detail recovery)

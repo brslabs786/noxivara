@@ -1,0 +1,30 @@
+# configs/exp10_config.yaml
+# =========================
+# Exp10 reproducible configuration.
+# All values here override train_exp10.py defaults.
+# Edit ONLY this file to change hyperparameters — do not edit train_exp10.py constants.
+
+# ── Data ──────────────────────────────────────────────────────────────────────
+lol_root:    "data/LOL/our485"
+div2k_root:  "data/div2k_images"
+
+# ── Training ──────────────────────────────────────────────────────────────────
+batch_size:           8
+num_workers:          0       # 0 = main process only (safe on MPS / limited RAM)
+max_epochs:           40
+early_stop_patience:  8       # stop after 8 epochs with no composite improvement
+
+# ── Optimiser ────────────────────────────────────────────────────────────────
+lr:            0.0002         # base LR (detail branch gets 2× = 0.0004)
+weight_decay:  0.00001        # AdamW-style regularisation
+
+# ── Loss weights ─────────────────────────────────────────────────────────────
+# LPIPS is NOT used in training loss (per-batch VGG too slow on M2 MPS).
+# It is computed in validation as a metric only.
+# Weights rescaled to sum=1: L1=0.625, SSIM=0.375
+w_l1:    0.625
+w_ssim:  0.375
+w_lpips: 0.0
+
+# ── Misc ──────────────────────────────────────────────────────────────────────
+resume: false                  # set to true to continue from latest.pth

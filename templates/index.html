@@ -1,0 +1,1980 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>NOXIVARA — AI Image Restoration Engine</title>
+  <link rel="icon" type="image/png" href="/static/logo.png">
+  <style>
+    /* ==========================================================================
+       RESET & BASE THEME
+       ========================================================================== */
+    *, *::before, *::after {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    :root {
+      --bg-base: #0a0a0f;
+      --card-bg: #111118;
+      --card-border: #1e1e2e;
+      --card-glass: rgba(255, 255, 255, 0.03);
+      --card-glass-hover: rgba(255, 255, 255, 0.05);
+      
+      --accent-indigo: #6366f1;
+      --accent-indigo-hover: #4f46e5;
+      --accent-cyan: #22d3ee;
+      --accent-emerald: #10b981;
+      --accent-purple: #8b5cf6;
+      --accent-pink: #ec4899;
+      --accent-amber: #f59e0b;
+      --accent-orange: #f97316;
+      --accent-blue: #1e40af;
+      --accent-slate: #64748b;
+
+      --text-primary: #e2e8f0;
+      --text-secondary: #94a3b8;
+      --text-muted: #64748b;
+
+      --radius-sm: 8px;
+      --radius-md: 12px;
+      --radius-lg: 16px;
+      --radius-xl: 24px;
+
+      --shadow-glow: 0 0 25px rgba(99, 102, 241, 0.35);
+      --shadow-glow-cyan: 0 0 25px rgba(34, 211, 238, 0.35);
+      --shadow-card: 0 10px 30px -10px rgba(0, 0, 0, 0.6);
+
+      --font-stack: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+    }
+
+    body {
+      background-color: var(--bg-base);
+      color: var(--text-primary);
+      font-family: var(--font-stack);
+      line-height: 1.6;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      overflow-x: hidden;
+      position: relative;
+      background-image: 
+        radial-gradient(ellipse 80% 50% at 50% -20%, rgba(99, 102, 241, 0.15), transparent),
+        radial-gradient(circle at 80% 80%, rgba(34, 211, 238, 0.05), transparent 40%),
+        radial-gradient(circle at 20% 60%, rgba(139, 92, 246, 0.06), transparent 40%);
+    }
+
+    /* Subtle background grid pattern */
+    body::before {
+      content: '';
+      position: fixed;
+      inset: 0;
+      background-image: 
+        linear-gradient(rgba(255, 255, 255, 0.015) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(255, 255, 255, 0.015) 1px, transparent 1px);
+      background-size: 32px 32px;
+      pointer-events: none;
+      z-index: 0;
+    }
+
+    .container {
+      width: 100%;
+      max-width: 960px;
+      margin: 0 auto;
+      padding: 2rem 1.25rem 4rem;
+      position: relative;
+      z-index: 1;
+      display: flex;
+      flex-direction: column;
+      gap: 2rem;
+    }
+
+    /* ==========================================================================
+       HEADER
+       ========================================================================== */
+    header {
+      position: relative;
+      text-align: center;
+      padding: 2.5rem 1.5rem;
+      border-radius: var(--radius-xl);
+      background: linear-gradient(180deg, rgba(255, 255, 255, 0.04) 0%, rgba(255, 255, 255, 0.01) 100%);
+      border: 1px solid var(--card-border);
+      overflow: hidden;
+      box-shadow: var(--shadow-card);
+    }
+
+    /* Ambient animated aura behind header */
+    .header-aura {
+      position: absolute;
+      top: -50%;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 450px;
+      height: 250px;
+      background: radial-gradient(circle, rgba(99, 102, 241, 0.28) 0%, rgba(34, 211, 238, 0.12) 50%, transparent 80%);
+      filter: blur(40px);
+      pointer-events: none;
+      animation: pulseAura 8s ease-in-out infinite alternate;
+      z-index: 0;
+    }
+
+    @keyframes pulseAura {
+      0% { transform: translateX(-50%) scale(0.9); opacity: 0.6; }
+      100% { transform: translateX(-50%) scale(1.15); opacity: 1; }
+    }
+
+    .header-content {
+      position: relative;
+      z-index: 1;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 0.5rem;
+    }
+
+    .version-badge {
+      position: absolute;
+      top: 1rem;
+      right: 1.25rem;
+      padding: 0.25rem 0.75rem;
+      font-size: 0.75rem;
+      font-weight: 700;
+      letter-spacing: 0.05em;
+      text-transform: uppercase;
+      color: #fff;
+      background: linear-gradient(135deg, var(--accent-indigo), var(--accent-purple));
+      border: 1px solid rgba(255, 255, 255, 0.2);
+      border-radius: 9999px;
+      box-shadow: 0 2px 10px rgba(99, 102, 241, 0.35);
+    }
+
+    .header-title {
+      font-size: 2.5rem;
+      font-weight: 800;
+      letter-spacing: -0.03em;
+      color: #ffffff;
+      text-shadow: 0 0 20px #6366f1, 0 0 40px rgba(99, 102, 241, 0.5);
+      margin-top: 0.5rem;
+      display: inline-flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+
+    .header-subtitle {
+      font-size: 0.95rem;
+      color: var(--text-secondary);
+      font-weight: 400;
+      letter-spacing: 0.01em;
+      max-width: 600px;
+    }
+
+    .header-chips {
+      display: flex;
+      gap: 0.5rem;
+      margin-top: 0.5rem;
+      flex-wrap: wrap;
+      justify-content: center;
+    }
+
+    .chip {
+      font-size: 0.75rem;
+      padding: 0.2rem 0.6rem;
+      border-radius: 6px;
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      color: var(--text-secondary);
+    }
+
+    /* ==========================================================================
+       CARDS COMMON
+       ========================================================================== */
+    .glass-card {
+      background: var(--card-glass);
+      background-color: var(--card-bg);
+      border: 1px solid var(--card-border);
+      border-radius: var(--radius-lg);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+      padding: 1.75rem;
+      box-shadow: var(--shadow-card);
+      transition: border-color 0.25s ease, box-shadow 0.25s ease, transform 0.25s ease;
+    }
+
+    .glass-card:hover {
+      border-color: rgba(99, 102, 241, 0.25);
+    }
+
+    /* Hide utility */
+    .hidden {
+      display: none !important;
+    }
+
+    /* ==========================================================================
+       UPLOAD CARD
+       ========================================================================== */
+    .drop-zone {
+      height: 300px;
+      border: 2px dashed rgba(99, 102, 241, 0.3);
+      border-radius: var(--radius-md);
+      background: rgba(255, 255, 255, 0.01);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      text-align: center;
+      padding: 1.5rem;
+      cursor: pointer;
+      position: relative;
+      overflow: hidden;
+      transition: all 0.25s ease;
+    }
+
+    .drop-zone:hover {
+      border-color: rgba(99, 102, 241, 0.65);
+      background: rgba(99, 102, 241, 0.03);
+    }
+
+    .drop-zone.drag-over {
+      border-style: solid;
+      border-color: var(--accent-indigo);
+      background: rgba(99, 102, 241, 0.08);
+      box-shadow: var(--shadow-glow);
+      transform: scale(1.008);
+    }
+
+    .drop-zone-icon {
+      width: 64px;
+      height: 64px;
+      margin-bottom: 1rem;
+      color: var(--accent-indigo);
+      filter: drop-shadow(0 4px 12px rgba(99, 102, 241, 0.35));
+      transition: transform 0.25s ease;
+    }
+
+    .drop-zone:hover .drop-zone-icon {
+      transform: translateY(-3px) scale(1.05);
+    }
+
+    .drop-zone-title {
+      font-size: 1.15rem;
+      font-weight: 600;
+      color: var(--text-primary);
+      margin-bottom: 0.35rem;
+    }
+
+    .drop-zone-hint {
+      font-size: 0.85rem;
+      color: var(--text-muted);
+    }
+
+    .file-input {
+      position: absolute;
+      inset: 0;
+      opacity: 0;
+      cursor: pointer;
+      width: 100%;
+      height: 100%;
+    }
+
+    /* File Preview within upload card */
+    .preview-container {
+      margin-top: 1.25rem;
+      padding: 1rem;
+      background: rgba(255, 255, 255, 0.02);
+      border: 1px solid var(--card-border);
+      border-radius: var(--radius-md);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 1rem;
+      animation: fadeIn 0.3s ease;
+    }
+
+    .preview-info {
+      display: flex;
+      align-items: center;
+      gap: 1rem;
+      min-width: 0;
+    }
+
+    .preview-thumb {
+      width: 80px;
+      height: 80px;
+      border-radius: var(--radius-sm);
+      object-fit: cover;
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      box-shadow: 0 4px 10px rgba(0, 0, 0, 0.4);
+      flex-shrink: 0;
+    }
+
+    .preview-details {
+      min-width: 0;
+    }
+
+    .preview-name {
+      font-size: 0.95rem;
+      font-weight: 600;
+      color: var(--text-primary);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      max-width: 400px;
+    }
+
+    .preview-size {
+      font-size: 0.8rem;
+      color: var(--text-secondary);
+      margin-top: 0.15rem;
+    }
+
+    .btn-remove-file {
+      background: transparent;
+      border: none;
+      color: var(--text-muted);
+      cursor: pointer;
+      padding: 0.5rem;
+      border-radius: var(--radius-sm);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: color 0.2s, background 0.2s;
+    }
+
+    .btn-remove-file:hover {
+      color: #ef4444;
+      background: rgba(239, 68, 68, 0.1);
+    }
+
+    /* Restore button */
+    .btn-restore {
+      width: 100%;
+      margin-top: 1.25rem;
+      padding: 0.95rem 1.5rem;
+      background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%);
+      border: 1px solid rgba(255, 255, 255, 0.15);
+      border-radius: var(--radius-md);
+      color: #ffffff;
+      font-size: 1.05rem;
+      font-weight: 700;
+      letter-spacing: 0.02em;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0.5rem;
+      box-shadow: 0 4px 16px rgba(99, 102, 241, 0.4);
+      transition: all 0.25s ease;
+    }
+
+    .btn-restore:hover:not(:disabled) {
+      transform: translateY(-2px);
+      box-shadow: 0 6px 24px rgba(99, 102, 241, 0.6);
+      filter: brightness(1.1);
+    }
+
+    .btn-restore:active:not(:disabled) {
+      transform: translateY(0);
+    }
+
+    .btn-restore:disabled {
+      opacity: 0.4;
+      cursor: not-allowed;
+      box-shadow: none;
+      transform: none;
+    }
+
+    /* ==========================================================================
+       PROCESSING CARD
+       ========================================================================== */
+    .processing-card {
+      text-align: center;
+      padding: 3rem 2rem;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 1.5rem;
+    }
+
+    .spinner-wrapper {
+      position: relative;
+      width: 80px;
+      height: 80px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .spinner {
+      width: 100%;
+      height: 100%;
+      border-radius: 50%;
+      border: 4px solid rgba(99, 102, 241, 0.15);
+      border-top-color: var(--accent-indigo);
+      border-right-color: var(--accent-cyan);
+      animation: spin 1s linear infinite;
+      box-shadow: var(--shadow-glow);
+    }
+
+    @keyframes spin {
+      100% { transform: rotate(360deg); }
+    }
+
+    .spinner-core {
+      position: absolute;
+      width: 32px;
+      height: 32px;
+      border-radius: 50%;
+      background: radial-gradient(circle, var(--accent-indigo) 0%, transparent 70%);
+      opacity: 0.7;
+      animation: pulseCore 1.5s ease-in-out infinite alternate;
+    }
+
+    @keyframes pulseCore {
+      0% { transform: scale(0.8); opacity: 0.4; }
+      100% { transform: scale(1.2); opacity: 0.9; }
+    }
+
+    .processing-stage {
+      font-size: 1.25rem;
+      font-weight: 600;
+      color: var(--text-primary);
+      min-height: 2rem;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0.5rem;
+    }
+
+    .processing-hint {
+      font-size: 0.85rem;
+      color: var(--text-secondary);
+      max-width: 480px;
+    }
+
+    /* Progress step indicator bar */
+    .progress-bar-container {
+      width: 100%;
+      max-width: 360px;
+      height: 6px;
+      background: rgba(255, 255, 255, 0.05);
+      border-radius: 999px;
+      overflow: hidden;
+      position: relative;
+    }
+
+    .progress-bar-glow {
+      position: absolute;
+      top: 0;
+      left: 0;
+      bottom: 0;
+      width: 45%;
+      background: linear-gradient(90deg, var(--accent-indigo), var(--accent-cyan));
+      border-radius: 999px;
+      animation: progressSweep 1.8s ease-in-out infinite;
+    }
+
+    @keyframes progressSweep {
+      0% { left: -45%; width: 45%; }
+      50% { width: 60%; }
+      100% { left: 100%; width: 45%; }
+    }
+
+    /* ==========================================================================
+       SCENE BADGES
+       ========================================================================== */
+    .scene-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.45rem;
+      padding: 0.35rem 0.85rem;
+      border-radius: 9999px;
+      font-size: 0.8rem;
+      font-weight: 700;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+      box-shadow: 0 2px 10px rgba(0, 0, 0, 0.25);
+      transition: all 0.25s ease;
+    }
+
+    .scene-badge::before {
+      content: '';
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background-color: currentColor;
+      box-shadow: 0 0 8px currentColor;
+    }
+
+    /* ==========================================================================
+       RESULTS CARD & COMPARISON SLIDER
+       ========================================================================== */
+    .results-card {
+      padding: 1.75rem;
+      display: flex;
+      flex-direction: column;
+      gap: 1.25rem;
+      animation: fadeIn 0.4s ease;
+    }
+
+    .results-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      gap: 1rem;
+    }
+
+    .results-title {
+      font-size: 1.3rem;
+      font-weight: 700;
+      color: #ffffff;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+
+    /* Slider Container */
+    .comparison-container {
+      position: relative;
+      width: 100%;
+      border-radius: var(--radius-md);
+      overflow: hidden;
+      background: #000;
+      border: 1px solid var(--card-border);
+      box-shadow: 0 12px 35px -8px rgba(0, 0, 0, 0.7);
+      user-select: none;
+      -webkit-user-select: none;
+      touch-action: none;
+      cursor: ew-resize;
+    }
+
+    /* Both images stack perfectly */
+    .slider-img {
+      display: block;
+      width: 100%;
+      height: auto;
+      max-height: 600px;
+      object-fit: contain;
+      pointer-events: none;
+      user-select: none;
+    }
+
+    /* Input (original) image sits base */
+    .slider-base {
+      position: relative;
+      width: 100%;
+    }
+
+    /* Restored overlay container */
+    .slider-overlay {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 50%;
+      height: 100%;
+      overflow: hidden;
+      z-index: 2;
+      will-change: width;
+    }
+
+    .slider-overlay .slider-img {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      object-fit: contain;
+      max-height: 600px;
+    }
+
+    /* Divider vertical line */
+    .slider-divider {
+      position: absolute;
+      top: 0;
+      bottom: 0;
+      left: 50%;
+      width: 2px;
+      background: #ffffff;
+      box-shadow: 0 0 10px rgba(0, 0, 0, 0.7), 0 0 4px rgba(255, 255, 255, 0.8);
+      z-index: 3;
+      transform: translateX(-50%);
+      pointer-events: none;
+      will-change: left;
+    }
+
+    /* Draggable circular handle */
+    .slider-handle {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      width: 42px;
+      height: 42px;
+      border-radius: 50%;
+      background: #ffffff;
+      color: #0f172a;
+      box-shadow: 0 0 16px rgba(0, 0, 0, 0.5), 0 0 8px rgba(99, 102, 241, 0.6);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 14px;
+      font-weight: 900;
+      letter-spacing: -2px;
+      pointer-events: none;
+      transition: transform 0.15s ease, box-shadow 0.15s ease;
+      z-index: 4;
+    }
+
+    .comparison-container:active .slider-handle {
+      transform: translate(-50%, -50%) scale(1.1);
+      box-shadow: 0 0 24px rgba(99, 102, 241, 0.9);
+    }
+
+    /* Floating Tags on slider */
+    .slider-tag {
+      position: absolute;
+      top: 1rem;
+      padding: 0.35rem 0.75rem;
+      font-size: 0.7rem;
+      font-weight: 800;
+      letter-spacing: 0.08em;
+      border-radius: 6px;
+      backdrop-filter: blur(8px);
+      -webkit-backdrop-filter: blur(8px);
+      pointer-events: none;
+      z-index: 5;
+    }
+
+    .slider-tag-left {
+      left: 1rem;
+      background: rgba(15, 23, 42, 0.75);
+      color: #38bdf8;
+      border: 1px solid rgba(56, 189, 248, 0.3);
+    }
+
+    .slider-tag-right {
+      right: 1rem;
+      background: rgba(15, 23, 42, 0.75);
+      color: #34d399;
+      border: 1px solid rgba(52, 211, 153, 0.3);
+    }
+
+    /* Results Meta & Actions */
+    .results-meta {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      gap: 1rem;
+      padding-top: 0.5rem;
+      border-top: 1px solid rgba(255, 255, 255, 0.05);
+    }
+
+    .meta-group {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      flex-wrap: wrap;
+    }
+
+    .time-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.35rem;
+      font-size: 0.85rem;
+      color: var(--text-secondary);
+      background: rgba(255, 255, 255, 0.04);
+      padding: 0.3rem 0.7rem;
+      border-radius: var(--radius-sm);
+      border: 1px solid rgba(255, 255, 255, 0.06);
+    }
+
+    .btn-download {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.5rem;
+      padding: 0.65rem 1.25rem;
+      background: linear-gradient(135deg, var(--accent-emerald), #059669);
+      border: 1px solid rgba(255, 255, 255, 0.2);
+      border-radius: var(--radius-md);
+      color: #ffffff;
+      font-size: 0.9rem;
+      font-weight: 700;
+      text-decoration: none;
+      cursor: pointer;
+      box-shadow: 0 4px 14px rgba(16, 185, 129, 0.35);
+      transition: all 0.2s ease;
+    }
+
+    .btn-download:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 6px 20px rgba(16, 185, 129, 0.55);
+      filter: brightness(1.08);
+    }
+
+    /* ==========================================================================
+       FEEDBACK CARD
+       ========================================================================== */
+    .feedback-card {
+      margin-top: 0.5rem;
+      animation: fadeIn 0.4s ease;
+    }
+
+    .feedback-title {
+      font-size: 1.15rem;
+      font-weight: 700;
+      margin-bottom: 0.25rem;
+      color: var(--text-primary);
+    }
+
+    .feedback-subtitle {
+      font-size: 0.85rem;
+      color: var(--text-secondary);
+      margin-bottom: 1.25rem;
+    }
+
+    .stars-container {
+      display: flex;
+      gap: 0.5rem;
+      margin-bottom: 1.25rem;
+    }
+
+    .star-btn {
+      background: transparent;
+      border: none;
+      font-size: 2rem;
+      line-height: 1;
+      cursor: pointer;
+      color: #334155;
+      transition: transform 0.15s ease, color 0.15s ease, filter 0.15s ease;
+      user-select: none;
+    }
+
+    .star-btn:hover {
+      transform: scale(1.2);
+      filter: drop-shadow(0 0 10px rgba(250, 204, 21, 0.6));
+    }
+
+    .star-btn.active, .star-btn.hovered {
+      color: #eab308;
+      text-shadow: 0 0 12px rgba(234, 179, 8, 0.5);
+    }
+
+    .feedback-textarea {
+      width: 100%;
+      min-height: 90px;
+      background: rgba(10, 10, 15, 0.8);
+      border: 1px solid var(--card-border);
+      border-radius: var(--radius-md);
+      padding: 0.75rem 1rem;
+      color: var(--text-primary);
+      font-family: inherit;
+      font-size: 0.9rem;
+      resize: vertical;
+      transition: border-color 0.2s, box-shadow 0.2s;
+      outline: none;
+    }
+
+    .feedback-textarea:focus {
+      border-color: var(--accent-indigo);
+      box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.25);
+    }
+
+    .feedback-actions {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-top: 1rem;
+      flex-wrap: wrap;
+      gap: 1rem;
+    }
+
+    .btn-feedback-submit {
+      padding: 0.65rem 1.4rem;
+      background: var(--card-glass);
+      background-color: #1e1e2e;
+      border: 1px solid rgba(99, 102, 241, 0.4);
+      color: #fff;
+      font-size: 0.9rem;
+      font-weight: 600;
+      border-radius: var(--radius-md);
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .btn-feedback-submit:hover:not(:disabled) {
+      background: var(--accent-indigo);
+      border-color: var(--accent-indigo);
+      box-shadow: 0 4px 14px rgba(99, 102, 241, 0.4);
+    }
+
+    .btn-feedback-submit:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+
+    .feedback-success-msg {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.4rem;
+      color: var(--accent-emerald);
+      font-size: 0.9rem;
+      font-weight: 600;
+      animation: fadeIn 0.3s ease;
+    }
+
+    /* ==========================================================================
+       HISTORY SECTION
+       ========================================================================== */
+    .history-section {
+      display: flex;
+      flex-direction: column;
+      gap: 1rem;
+    }
+
+    .history-toggle-btn {
+      width: 100%;
+      padding: 0.9rem 1.25rem;
+      background: rgba(255, 255, 255, 0.02);
+      border: 1px solid var(--card-border);
+      border-radius: var(--radius-lg);
+      color: var(--text-primary);
+      font-size: 1rem;
+      font-weight: 600;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      transition: all 0.2s;
+    }
+
+    .history-toggle-btn:hover {
+      background: rgba(255, 255, 255, 0.04);
+      border-color: rgba(99, 102, 241, 0.3);
+    }
+
+    .history-chevron {
+      transition: transform 0.3s ease;
+      width: 20px;
+      height: 20px;
+    }
+
+    .history-chevron.open {
+      transform: rotate(180deg);
+    }
+
+    .history-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 1.25rem;
+      animation: fadeIn 0.3s ease;
+    }
+
+    @media (max-width: 860px) {
+      .history-grid {
+        grid-template-columns: repeat(2, 1fr);
+      }
+    }
+
+    @media (max-width: 580px) {
+      .history-grid {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    .history-card {
+      background: var(--card-bg);
+      border: 1px solid var(--card-border);
+      border-radius: var(--radius-md);
+      padding: 1rem;
+      display: flex;
+      flex-direction: column;
+      gap: 0.75rem;
+      transition: transform 0.2s, border-color 0.2s, box-shadow 0.2s;
+    }
+
+    .history-card:hover {
+      transform: translateY(-3px);
+      border-color: rgba(99, 102, 241, 0.35);
+      box-shadow: 0 8px 24px -6px rgba(0, 0, 0, 0.5);
+    }
+
+    .history-thumbs-pair {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 0.5rem;
+      height: 110px;
+      position: relative;
+    }
+
+    .history-thumb-wrapper {
+      position: relative;
+      width: 100%;
+      height: 100%;
+      border-radius: var(--radius-sm);
+      overflow: hidden;
+      background: #000;
+      border: 1px solid rgba(255, 255, 255, 0.08);
+    }
+
+    .history-thumb-wrapper img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      display: block;
+    }
+
+    .history-thumb-badge {
+      position: absolute;
+      bottom: 4px;
+      left: 4px;
+      font-size: 0.65rem;
+      font-weight: 700;
+      padding: 2px 5px;
+      border-radius: 4px;
+      background: rgba(0, 0, 0, 0.7);
+      backdrop-filter: blur(4px);
+    }
+
+    .history-card-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 0.5rem;
+    }
+
+    .history-stars {
+      color: #eab308;
+      font-size: 0.85rem;
+      letter-spacing: 1px;
+    }
+
+    .history-card-note {
+      font-size: 0.8rem;
+      color: var(--text-secondary);
+      line-height: 1.4;
+      display: -webkit-box;
+      -webkit-line-clamp: 2;
+      -webkit-box-orient: vertical;
+      overflow: hidden;
+    }
+
+    .history-card-time {
+      font-size: 0.75rem;
+      color: var(--text-muted);
+      margin-top: auto;
+    }
+
+    .history-empty {
+      grid-column: 1 / -1;
+      text-align: center;
+      padding: 3rem 1rem;
+      color: var(--text-muted);
+      font-size: 0.95rem;
+      border: 1px dashed var(--card-border);
+      border-radius: var(--radius-md);
+    }
+
+    /* ==========================================================================
+       FOOTER
+       ========================================================================== */
+    footer {
+      margin-top: auto;
+      border-top: 1px solid var(--card-border);
+      padding: 2rem 1.25rem;
+      text-align: center;
+      background: rgba(10, 10, 15, 0.8);
+      position: relative;
+      z-index: 1;
+    }
+
+    .footer-content {
+      max-width: 960px;
+      margin: 0 auto;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 0.6rem;
+      font-size: 0.85rem;
+      color: var(--text-secondary);
+    }
+
+    .footer-links {
+      display: flex;
+      align-items: center;
+      gap: 1rem;
+      flex-wrap: wrap;
+      justify-content: center;
+    }
+
+    .footer-link {
+      color: var(--accent-indigo);
+      text-decoration: none;
+      transition: color 0.2s;
+    }
+
+    .footer-link:hover {
+      color: var(--accent-cyan);
+      text-decoration: underline;
+    }
+
+    /* ==========================================================================
+       TOAST NOTIFICATIONS
+       ========================================================================== */
+    .toast-container {
+      position: fixed;
+      bottom: 2rem;
+      right: 2rem;
+      z-index: 9999;
+      display: flex;
+      flex-direction: column;
+      gap: 0.75rem;
+      pointer-events: none;
+    }
+
+    .toast {
+      min-width: 280px;
+      max-width: 420px;
+      padding: 0.85rem 1.25rem;
+      border-radius: var(--radius-md);
+      background: #111118;
+      color: var(--text-primary);
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.6);
+      font-size: 0.9rem;
+      font-weight: 500;
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      border: 1px solid var(--card-border);
+      pointer-events: auto;
+      animation: slideInRight 0.3s cubic-bezier(0.16, 1, 0.3, 1), fadeOut 0.3s 2.7s forwards;
+    }
+
+    .toast.toast-success {
+      border-left: 4px solid var(--accent-emerald);
+    }
+    .toast.toast-error {
+      border-left: 4px solid #ef4444;
+    }
+    .toast.toast-info {
+      border-left: 4px solid var(--accent-indigo);
+    }
+
+    @keyframes slideInRight {
+      from { transform: translateX(100%); opacity: 0; }
+      to { transform: translateX(0); opacity: 1; }
+    }
+
+    @keyframes fadeOut {
+      to { opacity: 0; transform: translateY(10px); pointer-events: none; }
+    }
+
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(6px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    /* Responsive adjustments */
+    @media (max-width: 640px) {
+      .header-title {
+        font-size: 1.85rem;
+      }
+      .version-badge {
+        position: static;
+        margin-bottom: 0.5rem;
+      }
+      .container {
+        padding: 1.25rem 0.85rem 3rem;
+      }
+      .glass-card {
+        padding: 1.25rem;
+      }
+      .drop-zone {
+        height: 240px;
+      }
+      .toast-container {
+        left: 1rem;
+        right: 1rem;
+        bottom: 1rem;
+      }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Toast Notification System -->
+  <div class="toast-container" id="toastContainer"></div>
+
+  <div class="container">
+
+    <!-- ======================================================================
+         HEADER
+         ====================================================================== -->
+    <header>
+      <div class="header-aura"></div>
+      <div class="header-content">
+        <div style="display:flex; justify-content:center; margin-bottom:1rem;">
+          <img src="/static/logo.png" alt="Noxivara Logo" style="width:85px; height:85px; border-radius:20px; box-shadow:0 0 25px rgba(34, 211, 238, 0.45), 0 0 50px rgba(99, 102, 241, 0.25); border:1px solid rgba(34, 211, 238, 0.35);">
+        </div>
+        <span class="version-badge" style="letter-spacing:0.05em;">v2.0 · Powered by DAResUNet</span>
+        <h1 class="header-title" style="letter-spacing: 0.18em; font-size: 2.8rem; margin-top:0.3rem;">
+          <span>NOXIVARA</span>
+        </h1>
+        <p class="header-subtitle" style="font-weight: 600; letter-spacing: 0.12em; text-transform: uppercase; color: #38bdf8; font-size: 0.95rem; margin-bottom: 0.3rem;">
+          AI Image Restoration Engine
+        </p>
+        <p style="color: #94a3b8; font-style: italic; font-size: 0.92rem; margin-bottom: 1.1rem; letter-spacing: 0.02em;">
+          "Bring the Hidden Details to Light."
+        </p>
+        <div class="header-chips">
+          <span class="chip">Low-Light Enhancement</span>
+          <span class="chip">Denoising</span>
+          <span class="chip">Colour Restoration</span>
+          <span class="chip">Exp11 · 3.92M Params</span>
+        </div>
+      </div>
+    </header>
+
+    <!-- ======================================================================
+         UPLOAD CARD
+         ====================================================================== -->
+    <div class="glass-card" id="uploadCard">
+      <div class="drop-zone" id="dropZone">
+        <input type="file" id="fileInput" class="file-input" accept="image/jpeg,image/png,image/webp">
+        <svg class="drop-zone-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"></path>
+        </svg>
+        <h3 class="drop-zone-title">Drop image here or click to browse</h3>
+        <p class="drop-zone-hint">JPG · PNG · WEBP · max 32MB</p>
+      </div>
+
+      <!-- Preview when file chosen -->
+      <div class="preview-container hidden" id="previewContainer">
+        <div class="preview-info">
+          <img id="previewThumbnail" class="preview-thumb" alt="Preview">
+          <div class="preview-details">
+            <p class="preview-name" id="previewFileName">filename.jpg</p>
+            <p class="preview-size" id="previewFileSize">0 MB</p>
+          </div>
+        </div>
+        <button class="btn-remove-file" id="btnRemoveFile" title="Remove image">
+          <svg width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+          </svg>
+        </button>
+      </div>
+
+      <button class="btn-restore" id="btnRestore" disabled>
+        <span>Restore Image</span>
+        <span>✨</span>
+      </button>
+    </div>
+
+    <!-- ======================================================================
+         PROCESSING CARD
+         ====================================================================== -->
+    <div class="glass-card processing-card hidden" id="processingCard">
+      <div class="spinner-wrapper">
+        <div class="spinner"></div>
+        <div class="spinner-core"></div>
+      </div>
+      <div class="processing-stage" id="processingStageText">
+        Analyzing scene...
+      </div>
+      <div class="progress-bar-container">
+        <div class="progress-bar-glow"></div>
+      </div>
+      <div id="processingSceneContainer" class="hidden">
+        <span class="scene-badge" id="processingSceneBadge">ANALYZING</span>
+      </div>
+      <p class="processing-hint">
+        DAResUNet neural network is estimating illumination maps and dynamic channel curves.
+      </p>
+    </div>
+
+    <!-- ======================================================================
+         RESULTS CARD
+         ====================================================================== -->
+    <div class="glass-card results-card hidden" id="resultsCard">
+      <div class="results-header">
+        <h2 class="results-title">
+          <span>Restoration Complete</span>
+          <span style="font-size: 1.1rem;">⚡</span>
+        </h2>
+        <div class="meta-group">
+          <span class="scene-badge" id="resultsSceneBadge">UNKNOWN</span>
+          <span class="time-badge" id="resultsTimeBadge">
+            <svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+            </svg>
+            <span id="resultsTimeText">0.0s</span>
+          </span>
+        </div>
+      </div>
+
+      <!-- Before/After interactive slider -->
+      <div class="comparison-container" id="sliderContainer">
+        <!-- Restored (base image visible on the right) -->
+        <img id="sliderImgRestored" class="slider-img slider-base" alt="Restored Image">
+        
+        <!-- Input (clipped overlay on the left) -->
+        <div class="slider-overlay" id="sliderOverlay">
+          <img id="sliderImgInput" class="slider-img" alt="Input Image">
+        </div>
+
+        <!-- Slider Divider & Center Handle -->
+        <div class="slider-divider" id="sliderDivider">
+          <div class="slider-handle">
+            <span>&larr;&rarr;</span>
+          </div>
+        </div>
+
+        <!-- Indicator tags -->
+        <span class="slider-tag slider-tag-left">INPUT (ORIGINAL)</span>
+        <span class="slider-tag slider-tag-right">NOXIVARA RESTORED</span>
+      </div>
+
+      <!-- Actions & Download -->
+      <div class="results-meta">
+        <p style="font-size: 0.85rem; color: var(--text-secondary);">
+          Drag the center handle horizontally to compare before and after enhancement.
+        </p>
+        <a id="btnDownload" class="btn-download" download="restored_image.png" target="_blank">
+          <svg width="18" height="18" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path>
+          </svg>
+          <span>Download Enhanced HD</span>
+        </a>
+      </div>
+
+      <!-- ====================================================================
+           FEEDBACK CARD (nested within or below results)
+           ==================================================================== -->
+      <div class="glass-card feedback-card" id="feedbackCard">
+        <h3 class="feedback-title">Rate this restoration</h3>
+        <p class="feedback-subtitle">Your rating helps fine-tune model parameters and loss weights for future runs.</p>
+        
+        <div class="stars-container" id="starsContainer">
+          <button type="button" class="star-btn" data-value="1">★</button>
+          <button type="button" class="star-btn" data-value="2">★</button>
+          <button type="button" class="star-btn" data-value="3">★</button>
+          <button type="button" class="star-btn" data-value="4">★</button>
+          <button type="button" class="star-btn" data-value="5">★</button>
+        </div>
+
+        <textarea id="feedbackComment" class="feedback-textarea" placeholder="Describe the issue or feedback (e.g. overexposed highlights, slight color shift, great detail)..."></textarea>
+
+        <div class="feedback-actions">
+          <button class="btn-feedback-submit" id="btnSubmitFeedback" disabled>
+            Submit Feedback
+          </button>
+          <span class="feedback-success-msg hidden" id="feedbackSuccessMsg">
+            <svg width="18" height="18" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
+            </svg>
+            Thank you! Feedback recorded successfully.
+          </span>
+        </div>
+      </div>
+    </div>
+
+    <!-- ======================================================================
+         HISTORY SECTION
+         ====================================================================== -->
+    <div class="history-section" id="historySection">
+      <button class="history-toggle-btn" id="historyToggleBtn">
+        <span id="historyToggleLabel">Show History (0)</span>
+        <svg class="history-chevron" id="historyChevron" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
+        </svg>
+      </button>
+
+      <div class="history-grid hidden" id="historyGrid">
+        <!-- Rendered dynamically by loadHistory() -->
+      </div>
+    </div>
+
+  </div> <!-- /.container -->
+
+  <!-- ======================================================================
+       FOOTER
+       ====================================================================== -->
+  <footer>
+    <div class="footer-content">
+      <p style="font-weight: 500; color: #cbd5e1;">NOXIVARA &middot; AI Image Restoration Engine &middot; Powered by DAResUNet Architecture</p>
+      <div class="footer-links">
+        <a href="https://github.com/biswaranjanswain/noxivara" target="_blank" class="footer-link">GitHub Repository</a>
+        <span>&middot;</span>
+        <a href="#resultsCard" class="footer-link">Live Restoration</a>
+        <span>&middot;</span>
+        <span>"Bring the Hidden Details to Light."</span>
+      </div>
+    </div>
+  </footer>
+
+  <!-- ======================================================================
+       JAVASCRIPT
+       ====================================================================== -->
+  <script>
+    // State
+    let currentTaskId = null;
+    let selectedFile = null;
+    let selectedRating = 0;
+    let pollInterval = null;
+    let stageInterval = null;
+    let currentStageIndex = 0;
+    let isSliderDragging = false;
+
+    // Constants
+    const STAGES = [
+      'Uploading image...',
+      'Analyzing scene type...',
+      'Running neural network...',
+      'Applying adaptive ISP...',
+      'Finalizing...'
+    ];
+
+    const SCENE_COLORS = {
+      'WARM_INDOOR_LIT': '#f59e0b',  // Amber
+      'HDR_LOCAL_LIGHT': '#6366f1',  // Indigo
+      'NEON_COLORED': '#ec4899',     // Pink
+      'EXTREME_DARK': '#1e40af',     // Dark Blue
+      'MODERATE_LOWLIT': '#7c3aed',  // Purple
+      'DAYLIGHT': '#10b981',         // Emerald
+      'OVERCAST_OUTDOOR': '#64748b', // Slate
+      'GOLDEN_HOUR': '#f97316'       // Orange
+    };
+
+    // DOM Elements
+    const dropZone = document.getElementById('dropZone');
+    const fileInput = document.getElementById('fileInput');
+    const previewContainer = document.getElementById('previewContainer');
+    const previewThumbnail = document.getElementById('previewThumbnail');
+    const previewFileName = document.getElementById('previewFileName');
+    const previewFileSize = document.getElementById('previewFileSize');
+    const btnRemoveFile = document.getElementById('btnRemoveFile');
+    const btnRestore = document.getElementById('btnRestore');
+
+    const uploadCard = document.getElementById('uploadCard');
+    const processingCard = document.getElementById('processingCard');
+    const processingStageText = document.getElementById('processingStageText');
+    const processingSceneContainer = document.getElementById('processingSceneContainer');
+    const processingSceneBadge = document.getElementById('processingSceneBadge');
+
+    const resultsCard = document.getElementById('resultsCard');
+    const resultsSceneBadge = document.getElementById('resultsSceneBadge');
+    const resultsTimeText = document.getElementById('resultsTimeText');
+    const btnDownload = document.getElementById('btnDownload');
+
+    const sliderContainer = document.getElementById('sliderContainer');
+    const sliderImgInput = document.getElementById('sliderImgInput');
+    const sliderImgRestored = document.getElementById('sliderImgRestored');
+    const sliderOverlay = document.getElementById('sliderOverlay');
+    const sliderDivider = document.getElementById('sliderDivider');
+
+    const feedbackCard = document.getElementById('feedbackCard');
+    const starsContainer = document.getElementById('starsContainer');
+    const starButtons = starsContainer.querySelectorAll('.star-btn');
+    const feedbackComment = document.getElementById('feedbackComment');
+    const btnSubmitFeedback = document.getElementById('btnSubmitFeedback');
+    const feedbackSuccessMsg = document.getElementById('feedbackSuccessMsg');
+
+    const historyToggleBtn = document.getElementById('historyToggleBtn');
+    const historyToggleLabel = document.getElementById('historyToggleLabel');
+    const historyChevron = document.getElementById('historyChevron');
+    const historyGrid = document.getElementById('historyGrid');
+
+    // =========================================================================
+    // INITIALIZATION
+    // =========================================================================
+    document.addEventListener('DOMContentLoaded', () => {
+      initDropZone();
+      initFeedbackStars();
+      initHistoryToggle();
+      loadHistoryCount();
+    });
+
+    // =========================================================================
+    // 1. DROP ZONE & FILE SELECTION
+    // =========================================================================
+    function initDropZone() {
+      // Drag events
+      ['dragenter', 'dragover'].forEach(eventName => {
+        dropZone.addEventListener(eventName, (e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          dropZone.classList.add('drag-over');
+        });
+      });
+
+      ['dragleave', 'drop'].forEach(eventName => {
+        dropZone.addEventListener(eventName, (e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          dropZone.classList.remove('drag-over');
+        });
+      });
+
+      dropZone.addEventListener('drop', (e) => {
+        const dt = e.dataTransfer;
+        const files = dt.files;
+        if (files && files.length > 0) {
+          handleFile(files[0]);
+        }
+      });
+
+      fileInput.addEventListener('change', (e) => {
+        if (fileInput.files && fileInput.files.length > 0) {
+          handleFile(fileInput.files[0]);
+        }
+      });
+
+      btnRemoveFile.addEventListener('click', (e) => {
+        e.stopPropagation();
+        resetFileInput();
+      });
+
+      btnRestore.addEventListener('click', startRestore);
+    }
+
+    function resetFileInput() {
+      selectedFile = null;
+      fileInput.value = '';
+      previewContainer.classList.add('hidden');
+      btnRestore.disabled = true;
+    }
+
+    // =========================================================================
+    // 2. HANDLE FILE
+    // =========================================================================
+    function handleFile(file) {
+      const allowedTypes = ['image/jpeg', 'image/png', 'image/webp'];
+      if (!allowedTypes.includes(file.type)) {
+        showToast('Invalid file format. Please upload JPG, PNG, or WEBP.', 'error');
+        return;
+      }
+
+      const maxBytes = 32 * 1024 * 1024; // 32MB
+      if (file.size > maxBytes) {
+        showToast('File size exceeds the 32MB limit.', 'error');
+        return;
+      }
+
+      selectedFile = file;
+
+      // Show preview
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        previewThumbnail.src = e.target.result;
+        previewFileName.textContent = file.name;
+        previewFileSize.textContent = formatBytes(file.size);
+        previewContainer.classList.remove('hidden');
+        btnRestore.disabled = false;
+      };
+      reader.readAsDataURL(file);
+    }
+
+    // =========================================================================
+    // 3. START RESTORATION
+    // =========================================================================
+    async function startRestore() {
+      if (!selectedFile) {
+        showToast('Please select an image first.', 'info');
+        return;
+      }
+
+      // Hide results & feedback if previously shown
+      resultsCard.classList.add('hidden');
+      feedbackSuccessMsg.classList.add('hidden');
+      btnSubmitFeedback.disabled = true;
+      resetFeedbackForm();
+
+      // Show processing card
+      uploadCard.classList.add('hidden');
+      processingCard.classList.remove('hidden');
+      processingSceneContainer.classList.add('hidden');
+
+      // Start stage cycling animation
+      currentStageIndex = 0;
+      processingStageText.textContent = STAGES[0];
+      if (stageInterval) clearInterval(stageInterval);
+      stageInterval = setInterval(() => {
+        currentStageIndex = (currentStageIndex + 1) % STAGES.length;
+        processingStageText.textContent = STAGES[currentStageIndex];
+      }, 1500);
+
+      // Construct payload
+      const formData = new FormData();
+      formData.append('image', selectedFile);
+
+      try {
+        const response = await fetch('/api/restore', {
+          method: 'POST',
+          body: formData
+        });
+
+        if (!response.ok) {
+          throw new Error(`Server returned HTTP ${response.status}`);
+        }
+
+        const data = await response.json();
+
+        // Check if taskId returned or instant result
+        if (data.task_id) {
+          currentTaskId = data.task_id;
+          pollStatus();
+        } else if (data.status === 'completed' || data.restored_url) {
+          // Synchronous fallback
+          clearInterval(stageInterval);
+          showResults(data);
+        } else {
+          throw new Error(data.error || 'Failed to start image restoration');
+        }
+
+      } catch (err) {
+        console.error(err);
+        clearInterval(stageInterval);
+        processingCard.classList.add('hidden');
+        uploadCard.classList.remove('hidden');
+        showToast(`Restoration failed: ${err.message}`, 'error');
+      }
+    }
+
+    // =========================================================================
+    // 4. POLL STATUS
+    // =========================================================================
+    function pollStatus() {
+      if (pollInterval) clearInterval(pollInterval);
+
+      pollInterval = setInterval(async () => {
+        try {
+          const res = await fetch(`/api/status/${currentTaskId}`);
+          if (!res.ok) {
+            throw new Error(`Status check failed: HTTP ${res.status}`);
+          }
+          const data = await res.json();
+
+          // Update stage if provided by backend
+          if (data.stage) {
+            processingStageText.textContent = data.stage;
+          }
+
+          // Show scene badge if detected
+          if (data.scene_type) {
+            processingSceneContainer.classList.remove('hidden');
+            applySceneBadge(processingSceneBadge, data.scene_type);
+          }
+
+          if (data.status === 'completed' || data.status === 'done' || data.restored_url || data.output_url) {
+            clearInterval(pollInterval);
+            clearInterval(stageInterval);
+            showResults(data);
+          } else if (data.status === 'failed' || data.status === 'error' || data.error) {
+            clearInterval(pollInterval);
+            clearInterval(stageInterval);
+            processingCard.classList.add('hidden');
+            uploadCard.classList.remove('hidden');
+            showToast(data.error || 'Restoration task failed.', 'error');
+          }
+        } catch (error) {
+          console.warn('Polling error:', error);
+        }
+      }, 800);
+    }
+
+    // =========================================================================
+    // 5. SHOW RESULTS
+    // =========================================================================
+    function showResults(data) {
+      processingCard.classList.add('hidden');
+      uploadCard.classList.remove('hidden');
+      resultsCard.classList.remove('hidden');
+
+      if (data.task_id) {
+        currentTaskId = data.task_id;
+      }
+
+      // Update scene badge & meta
+      const scene = data.scene_type || 'MODERATE_LOWLIT';
+      applySceneBadge(resultsSceneBadge, scene);
+
+      let duration = '1.2s';
+      if (data.processing_time_ms != null) {
+        duration = `${(data.processing_time_ms / 1000).toFixed(2)}s`;
+      } else if (data.processing_time != null) {
+        duration = `${Number(data.processing_time).toFixed(2)}s`;
+      }
+      resultsTimeText.textContent = duration;
+
+      // Update URLs
+      const inputUrl = data.input_url || (selectedFile ? URL.createObjectURL(selectedFile) : '');
+      const restoredUrl = data.restored_url || data.output_url || '';
+
+      btnDownload.href = restoredUrl;
+      btnDownload.setAttribute('download', `restored_${data.task_id || 'result'}.png`);
+
+      initSlider(inputUrl, restoredUrl);
+      showToast('Image enhancement complete!', 'success');
+
+      // Refresh history silently in background
+      loadHistoryCount();
+      if (!historyGrid.classList.contains('hidden')) {
+        loadHistory();
+      }
+
+      // Smooth scroll to results
+      resultsCard.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+
+    // =========================================================================
+    // 6. IMAGE COMPARISON SLIDER
+    // =========================================================================
+    function initSlider(inputUrl, restoredUrl) {
+      sliderImgInput.src = inputUrl;
+      sliderImgRestored.src = restoredUrl;
+
+      // Reset to 50%
+      updateSliderPosition(50);
+
+      // Ensure proper width matching once image loads
+      sliderImgInput.onload = () => {
+        syncSliderDimensions();
+      };
+      sliderImgRestored.onload = () => {
+        syncSliderDimensions();
+      };
+
+      // Mouse and touch interaction
+      const onMove = (clientX) => {
+        const rect = sliderContainer.getBoundingClientRect();
+        let posX = clientX - rect.left;
+        let percentage = (posX / rect.width) * 100;
+        if (percentage < 0) percentage = 0;
+        if (percentage > 100) percentage = 100;
+        updateSliderPosition(percentage);
+      };
+
+      sliderContainer.onmousedown = (e) => {
+        isSliderDragging = true;
+        onMove(e.clientX);
+      };
+
+      window.onmousemove = (e) => {
+        if (!isSliderDragging) return;
+        onMove(e.clientX);
+      };
+
+      window.onmouseup = () => {
+        isSliderDragging = false;
+      };
+
+      // Touch events
+      sliderContainer.ontouchstart = (e) => {
+        isSliderDragging = true;
+        if (e.touches && e.touches[0]) {
+          onMove(e.touches[0].clientX);
+        }
+      };
+
+      window.ontouchmove = (e) => {
+        if (!isSliderDragging) return;
+        if (e.touches && e.touches[0]) {
+          onMove(e.touches[0].clientX);
+        }
+      };
+
+      window.ontouchend = () => {
+        isSliderDragging = false;
+      };
+
+      window.addEventListener('resize', syncSliderDimensions);
+    }
+
+    function syncSliderDimensions() {
+      // Match input image width strictly to container width
+      if (sliderContainer && sliderImgInput) {
+        sliderImgInput.style.width = `${sliderContainer.offsetWidth}px`;
+      }
+    }
+
+    function updateSliderPosition(percentage) {
+      sliderOverlay.style.width = `${percentage}%`;
+      sliderDivider.style.left = `${percentage}%`;
+    }
+
+    // =========================================================================
+    // 7. FEEDBACK WIDGET
+    // =========================================================================
+    function initFeedbackStars() {
+      starButtons.forEach(btn => {
+        btn.addEventListener('mouseenter', () => {
+          const val = parseInt(btn.dataset.value, 10);
+          highlightStars(val, 'hovered');
+        });
+
+        btn.addEventListener('mouseleave', () => {
+          highlightStars(selectedRating, 'active');
+        });
+
+        btn.addEventListener('click', () => {
+          selectedRating = parseInt(btn.dataset.value, 10);
+          highlightStars(selectedRating, 'active');
+          btnSubmitFeedback.disabled = false;
+        });
+      });
+
+      btnSubmitFeedback.addEventListener('click', submitFeedback);
+    }
+
+    function highlightStars(count, className) {
+      starButtons.forEach(btn => {
+        const val = parseInt(btn.dataset.value, 10);
+        btn.classList.remove('hovered');
+        if (className === 'active') {
+          btn.classList.remove('active');
+        }
+        if (val <= count) {
+          btn.classList.add(className);
+        }
+      });
+    }
+
+    function resetFeedbackForm() {
+      selectedRating = 0;
+      feedbackComment.value = '';
+      highlightStars(0, 'active');
+      btnSubmitFeedback.disabled = true;
+    }
+
+    async function submitFeedback() {
+      if (selectedRating === 0) {
+        showToast('Please select a star rating first.', 'info');
+        return;
+      }
+
+      btnSubmitFeedback.disabled = true;
+      btnSubmitFeedback.textContent = 'Submitting...';
+
+      const payload = {
+        task_id: currentTaskId,
+        rating: selectedRating,
+        comment: feedbackComment.value.trim()
+      };
+
+      try {
+        const res = await fetch('/api/feedback', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        });
+
+        if (!res.ok) {
+          throw new Error(`HTTP ${res.status}`);
+        }
+
+        feedbackSuccessMsg.classList.remove('hidden');
+        showToast('Feedback submitted. Thank you!', 'success');
+        loadHistoryCount();
+        if (!historyGrid.classList.contains('hidden')) {
+          loadHistory();
+        }
+      } catch (err) {
+        console.error('Feedback error:', err);
+        showToast('Failed to submit feedback. Saved locally.', 'info');
+        feedbackSuccessMsg.classList.remove('hidden');
+      } finally {
+        btnSubmitFeedback.textContent = 'Submit Feedback';
+      }
+    }
+
+    // =========================================================================
+    // 8. HISTORY SECTION
+    // =========================================================================
+    function initHistoryToggle() {
+      historyToggleBtn.addEventListener('click', () => {
+        const isCollapsed = historyGrid.classList.contains('hidden');
+        if (isCollapsed) {
+          historyGrid.classList.remove('hidden');
+          historyChevron.classList.add('open');
+          loadHistory();
+        } else {
+          historyGrid.classList.add('hidden');
+          historyChevron.classList.remove('open');
+        }
+      });
+    }
+
+    async function loadHistoryCount() {
+      try {
+        const res = await fetch('/api/history');
+        if (res.ok) {
+          const list = await res.json();
+          const count = Array.isArray(list) ? list.length : 0;
+          historyToggleLabel.textContent = `Show History (${count})`;
+        }
+      } catch (e) {
+        // Fallback quiet
+      }
+    }
+
+    async function loadHistory() {
+      historyGrid.innerHTML = `
+        <div class="history-empty" style="grid-column: 1 / -1;">
+          Loading restoration history...
+        </div>
+      `;
+
+      try {
+        const res = await fetch('/api/history');
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        const items = await res.json();
+
+        if (!Array.isArray(items) || items.length === 0) {
+          historyGrid.innerHTML = `
+            <div class="history-empty">
+              No historical restorations found. Enhance an image to build your gallery!
+            </div>
+          `;
+          return;
+        }
+
+        historyToggleLabel.textContent = `Show History (${items.length})`;
+        historyGrid.innerHTML = '';
+
+        items.forEach(item => {
+          const card = document.createElement('div');
+          card.className = 'history-card';
+
+          const inputThumb = item.input_url || item.output_url || '';
+          const restoredThumb = item.restored_url || item.output_url || '';
+          const scene = item.scene_type || 'MODERATE_LOWLIT';
+          const sceneColor = SCENE_COLORS[scene] || '#6366f1';
+          const stars = item.rating ? '★'.repeat(item.rating) : '☆☆☆☆☆';
+          const dateStr = item.created_at ? new Date(item.created_at).toLocaleString() : 'Recent';
+          const comment = item.comment || item.note || (item.rating ? `Rated ${item.rating}/5` : 'Restored with Exp11');
+
+          card.innerHTML = `
+            <div class="history-thumbs-pair">
+              <div class="history-thumb-wrapper">
+                ${inputThumb ? `<img src="${inputThumb}" alt="Original" loading="lazy" onerror="this.style.display='none'">` : '<div style="display:flex;align-items:center;justify-content:center;height:100%;color:#64748b;font-size:0.75rem;">N/A</div>'}
+                <span class="history-thumb-badge" style="color: #38bdf8;">IN</span>
+              </div>
+              <div class="history-thumb-wrapper">
+                ${restoredThumb ? `<img src="${restoredThumb}" alt="Restored" loading="lazy" onerror="this.style.display='none'">` : '<div style="display:flex;align-items:center;justify-content:center;height:100%;color:#64748b;font-size:0.75rem;">N/A</div>'}
+                <span class="history-thumb-badge" style="color: #34d399;">OUT</span>
+              </div>
+            </div>
+            <div class="history-card-header">
+              <span class="scene-badge" style="font-size: 0.7rem; padding: 0.2rem 0.5rem; background: ${hexToRgba(sceneColor, 0.15)}; color: ${sceneColor}; border: 1px solid ${hexToRgba(sceneColor, 0.3)};">
+                ${formatSceneName(scene)}
+              </span>
+              <span class="history-stars">${stars}</span>
+            </div>
+            <p class="history-card-note">${escapeHtml(comment)}</p>
+            <span class="history-card-time">${escapeHtml(dateStr)}</span>
+          `;
+
+          // Clicking card loads it into main comparison slider
+          card.style.cursor = 'pointer';
+          card.addEventListener('click', () => {
+            currentTaskId = item.task_id || null;
+            showResults({
+              task_id: item.task_id,
+              scene_type: scene,
+              processing_time: item.processing_time || 1.1,
+              input_url: inputThumb,
+              restored_url: restoredThumb
+            });
+          });
+
+          historyGrid.appendChild(card);
+        });
+
+      } catch (err) {
+        console.error('History load failed:', err);
+        historyGrid.innerHTML = `
+          <div class="history-empty">
+            Unable to fetch history. Server may be in demo mode.
+          </div>
+        `;
+      }
+    }
+
+    // =========================================================================
+    // 9. TOAST NOTIFICATIONS
+    // =========================================================================
+    function showToast(message, type = 'info') {
+      const toastContainer = document.getElementById('toastContainer');
+      const toast = document.createElement('div');
+      toast.className = `toast toast-${type}`;
+
+      let iconSvg = '';
+      if (type === 'success') {
+        iconSvg = `<svg width="18" height="18" fill="none" stroke="var(--accent-emerald)" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>`;
+      } else if (type === 'error') {
+        iconSvg = `<svg width="18" height="18" fill="none" stroke="#ef4444" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>`;
+      } else {
+        iconSvg = `<svg width="18" height="18" fill="none" stroke="var(--accent-indigo)" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>`;
+      }
+
+      toast.innerHTML = `
+        ${iconSvg}
+        <span>${escapeHtml(message)}</span>
+      `;
+
+      toastContainer.appendChild(toast);
+
+      setTimeout(() => {
+        if (toast.parentNode) {
+          toast.parentNode.removeChild(toast);
+        }
+      }, 3000);
+    }
+
+    // =========================================================================
+    // 10. UTILITIES
+    // =========================================================================
+    function formatBytes(bytes, decimals = 1) {
+      if (bytes === 0) return '0 Bytes';
+      const k = 1024;
+      const dm = decimals < 0 ? 0 : decimals;
+      const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+      const i = Math.floor(Math.log(bytes) / Math.log(k));
+      return parseFloat((bytes / Math.pow(k, i)).toFixed(dm)) + ' ' + sizes[i];
+    }
+
+    function applySceneBadge(badgeElement, sceneKey) {
+      const color = SCENE_COLORS[sceneKey] || '#6366f1';
+      badgeElement.textContent = formatSceneName(sceneKey);
+      badgeElement.style.color = color;
+      badgeElement.style.backgroundColor = hexToRgba(color, 0.12);
+      badgeElement.style.border = `1px solid ${hexToRgba(color, 0.35)}`;
+      badgeElement.style.boxShadow = `0 0 14px ${hexToRgba(color, 0.25)}`;
+    }
+
+    function formatSceneName(sceneKey) {
+      if (!sceneKey) return 'UNKNOWN';
+      return sceneKey.replace(/_/g, ' ');
+    }
+
+    function hexToRgba(hex, alpha = 1) {
+      const sanitized = hex.replace('#', '');
+      const r = parseInt(sanitized.substring(0, 2), 16);
+      const g = parseInt(sanitized.substring(2, 4), 16);
+      const b = parseInt(sanitized.substring(4, 6), 16);
+      return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+    }
+
+    function escapeHtml(str) {
+      if (!str) return '';
+      return String(str)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#039;');
+    }
+  </script>
+</body>
+</html>

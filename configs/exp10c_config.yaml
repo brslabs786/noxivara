@@ -1,0 +1,27 @@
+# configs/exp10c_config.yaml
+# ==========================
+# Reproducible configuration for Experiment 10c:
+# Colour & Detail Preserving Restoration Network.
+
+lol_root:       "data/LOL/our485"
+div2k_root:     "data/div2k_images"
+warmstart_ckpt: "experiments/experiment_10_final/checkpoints/best.pth"
+out_dir:        "experiments/experiment_10c_color_refined"
+
+# Hyperparameters
+batch_size:           8
+num_workers:          0
+max_epochs:           10        # targeted fine-tuning to realign color & detail
+early_stop_patience:  4
+
+# Dual Learning Rates
+lr_illum:     0.00003          # 3e-5 (careful illumination & encoder fine-tuning)
+lr_detail:    0.00015          # 1.5e-4 (detail branch & gating)
+weight_decay: 0.00001
+
+# Loss Weights
+w_char:   0.40                 # Charbonnier robust loss
+w_ssim:   0.30                 # Differentiable SSIM
+w_color:  0.15                 # Cosine Chromaticity / Colour angle loss
+w_edge:   0.05                 # Sobel edge gradient loss
+w_tv:     0.005                # Total Variation smoothness penalty
