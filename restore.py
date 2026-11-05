@@ -303,17 +303,31 @@ def _postprocess_neon(x, neural, Y_in, Y_pred):
 
 def _postprocess_hdr_local(x, neural, Y_in, Y_pred):
     """
-    HDR LOCAL LIGHT SCENE (desk lamp + dark room, bedroom night scene with window):
+    HDR LOCAL LIGHT SCENE (desk lamp + dark room, laptop screen in dark classroom):
     Neural network Exp11 has learned the true physical lighting of the room.
-    We use neural as the primary rich illumination base, while preserving pure
-    highlights (lamp bulbs, glowing light sources) from the input to prevent bleaching.
+
+    Two-zone protection:
+      Zone 1 (screen / mid-bright, Y_in 0.12–0.45): partial preserve — prevents text
+              on laptop screens and lit surfaces from blowing out to white.
+      Zone 2 (lamp cores / pure highlight, Y_in > 0.45): strong preserve — protects
+              glowing bulbs and direct light sources from bleaching.
+    Dark background (Y_in < 0.12): full neural — maximum lift for shadow recovery.
     """
-    # Smooth highlight mask: preserves glowing lamps and bulb cores (Y_in > 0.45)
-    t_lamp = torch.clamp((Y_in - 0.45) / 0.35, 0.0, 1.0)
+    # Zone 2: lamp / pure highlight protection (Y_in > 0.45) — strong preserve
+    t_lamp = torch.clamp((Y_in - 0.45) / 0.25, 0.0, 1.0)
     w_lamp = 0.5 * (1.0 - torch.cos(torch.pi * t_lamp))
 
-    # Neural gives the full, bright, natural room lighting; x protects the glowing bulb filament
-    result = neural * (1.0 - w_lamp) + x * w_lamp
+    # Zone 1: screen / mid-bright protection (Y_in 0.12 → 0.45) — partial preserve
+    # Smoothly ramps from 0 at Y_in=0.12 to 0.55 at Y_in=0.45
+    # This keeps laptop screen text, lit wall areas, faces readable
+    t_screen = torch.clamp((Y_in - 0.12) / 0.33, 0.0, 1.0)
+    w_screen = 0.55 * (0.5 * (1.0 - torch.cos(torch.pi * t_screen)))
+
+    # Combine: lamp zone overrides screen zone where both fire
+    w_total = torch.clamp(w_screen + w_lamp, 0.0, 1.0)
+
+    # Blend: dark areas = neural (full recovery), bright areas = original (preserve detail)
+    result = neural * (1.0 - w_total) + x * w_total
     return result.clamp(0, 1)
 
 
