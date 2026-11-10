@@ -161,8 +161,13 @@ def diagnose_scene(x: torch.Tensor) -> Dict:
     warm_ratio = R_mean / (B_mean + 1e-6)
     is_warm_cast = (warm_ratio > 1.30) and (input_sat_mean > 35) and not is_neon
 
-    # GOLDEN HOUR: warm + bright (not just a dim indoor room)
-    is_golden_hour = is_warm_cast and (mean_lum > 0.25) and (p50 > 0.20)
+    # GOLDEN HOUR / SUNSET: warm cast + outdoor bright sky or sun visible.
+    # Key insight: sunsets have max_lum > 0.80 (direct sun pixel) or p99 > 0.45 (bright sky band)
+    # even when the subject/face is in shadow (backlit silhouette → mean_lum can be as low as 0.12).
+    # This correctly catches backlit beach/sunset portraits that fall below the old 0.25 mean threshold.
+    is_golden_hour = is_warm_cast and (mean_lum > 0.12) and (
+        (max_lum > 0.80) or (p99 > 0.45)
+    )
 
     # OVERCAST: all three channels near-equal, moderate luminance
     channel_balance = max(abs(r_dom - 0.333), abs(g_dom - 0.333), abs(b_dom - 0.333))
@@ -173,20 +178,23 @@ def diagnose_scene(x: torch.Tensor) -> Dict:
     is_hdr_local = has_local_bright and (p50 < 0.18) and (shadow_ratio > 0.30)
 
     # WARM INDOOR: warm cast + dim-to-moderate scene (Indian rooms, tungsten halls)
+    # Explicitly exclude golden_hour so sunsets don't fall here
     is_warm_indoor = is_warm_cast and (mean_lum < 0.42) and not is_golden_hour
 
     # ── Scene Classification (strict priority) ────────────────────────────────
     # Well-lit / daylight: high mean luminance, or moderate scene with minimal shadow
     is_well_lit = (mean_lum > 0.40) or (mean_lum > 0.32 and shadow_ratio < 0.20)
 
-    if is_well_lit:
+    if is_well_lit and not is_golden_hour:
+        # Prevent bright sunset scenes from being misclassified as plain DAYLIGHT
         scene_type = "DAYLIGHT"
     elif is_neon:
         scene_type = "NEON_COLORED"
+    elif is_golden_hour:
+        # Golden hour checked BEFORE warm_indoor — outdoor sunset takes priority
+        scene_type = "GOLDEN_HOUR"
     elif is_warm_indoor:
         scene_type = "WARM_INDOOR_LIT"
-    elif is_golden_hour:
-        scene_type = "GOLDEN_HOUR"
     elif is_overcast:
         scene_type = "OVERCAST_OUTDOOR"
     elif is_hdr_local:
@@ -242,13 +250,22 @@ def _postprocess_warm_indoor(x, neural, Y_in, Y_pred):
 
 def _postprocess_golden_hour(x, neural, Y_in, Y_pred):
     """
-    GOLDEN HOUR / SUNSET SCENE:
-    Preserve the natural dramatic sunset silhouette and rich golden colors!
-    Neural network should only provide subtle detail/denoising (18%),
-    and never blowout shadows into grainy, bleached white.
+    GOLDEN HOUR / SUNSET SCENE (beach portraits, backlit silhouettes, outdoor evening):
+    Two-zone adaptive blend:
+      - Dark subject / shadow zones (Y_in < 0.25):  40% neural → lifts face & foreground
+        without blowing out the warm sky behind it.
+      - Bright sky / sun zones (Y_in > 0.50): 8% neural → preserve golden colors & sun disc.
+      - Mid-tones (0.25–0.50): smooth cosine ramp between both extremes.
+    Result: subject's face becomes visible while sunset drama is fully preserved.
     """
-    blend = 0.18
-    result = x * (1.0 - blend) + neural * blend
+    # Smooth ramp: 0 at shadow → 1 at bright sky
+    t = torch.clamp((Y_in - 0.25) / (0.50 - 0.25), 0.0, 1.0)
+    w = 0.5 * (1.0 - torch.cos(torch.pi * t))   # cosine ease-in-out
+
+    # blend_map: 0.40 in shadows, 0.08 in highlights
+    blend_map = 0.40 * (1.0 - w) + 0.08 * w
+
+    result = x * (1.0 - blend_map) + neural * blend_map
     return result.clamp(0, 1)
 
 
@@ -264,17 +281,18 @@ def _postprocess_overcast(x, neural, Y_in, Y_pred):
 def _postprocess_daylight(x, neural, Y_in, Y_pred):
     """
     DAYLIGHT SCENE:
-    Image is already well-exposed. Apply only gentle contrast/sharpness from neural.
-    Safety: absolutely no aggressive brightening. If neural output is brighter than
-    input by more than 10% globally, blend back heavily toward original.
+    Already reasonably well-exposed. Neural blend lifts slight underexposure and
+    recovers shadow detail in faces / foreground. Aggressive overexposure is suppressed.
     """
-    # Very gentle neural blend only — preserve original look
     neural_boost = float((Y_pred / (Y_in + 1e-4)).mean().item())
-    if neural_boost > 1.10:
-        # Neural is trying to over-brighten — suppress it
+    if neural_boost > 1.30:
+        # Neural is trying to over-brighten — suppress it hard
         blend = 0.15
+    elif neural_boost > 1.10:
+        blend = 0.28
     else:
-        blend = 0.30
+        # Neural and input are similar — moderate blend for natural enhancement
+        blend = 0.40
     result = x * (1.0 - blend) + neural * blend
     return result.clamp(0, 1)
 
