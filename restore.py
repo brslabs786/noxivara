@@ -251,19 +251,20 @@ def _postprocess_warm_indoor(x, neural, Y_in, Y_pred):
 def _postprocess_golden_hour(x, neural, Y_in, Y_pred):
     """
     GOLDEN HOUR / SUNSET SCENE (beach portraits, backlit silhouettes, outdoor evening):
-    Two-zone adaptive blend:
-      - Dark subject / shadow zones (Y_in < 0.25):  40% neural → lifts face & foreground
-        without blowing out the warm sky behind it.
-      - Bright sky / sun zones (Y_in > 0.50): 8% neural → preserve golden colors & sun disc.
-      - Mid-tones (0.25–0.50): smooth cosine ramp between both extremes.
-    Result: subject's face becomes visible while sunset drama is fully preserved.
-    """
-    # Smooth ramp: 0 at shadow → 1 at bright sky
-    t = torch.clamp((Y_in - 0.25) / (0.50 - 0.25), 0.0, 1.0)
-    w = 0.5 * (1.0 - torch.cos(torch.pi * t))   # cosine ease-in-out
+    Three-zone adaptive blend for the most natural result:
+      - Deep shadow (Y_in < 0.15):  55% neural → significantly lifts dark face/foreground
+      - Mid shadow  (0.15–0.35):    smooth ramp from 55% → 10% neural (natural transition)
+      - Sky/bright  (Y_in > 0.35):  10% neural → sky & sun disc preserved almost untouched
 
-    # blend_map: 0.40 in shadows, 0.08 in highlights
-    blend_map = 0.40 * (1.0 - w) + 0.08 * w
+    Result: face becomes clearly visible, skin tones look warm & natural,
+            sunset sky and sun disc remain dramatic without blowing out.
+    """
+    # Ramp: 0 at deep shadow (Y_in=0.15) → 1 at bright sky (Y_in=0.35)
+    t = torch.clamp((Y_in - 0.15) / (0.35 - 0.15), 0.0, 1.0)
+    w = 0.5 * (1.0 - torch.cos(torch.pi * t))   # smooth cosine ease
+
+    # blend_map: 0.55 in deep shadows → 0.10 in bright sky
+    blend_map = 0.55 * (1.0 - w) + 0.10 * w
 
     result = x * (1.0 - blend_map) + neural * blend_map
     return result.clamp(0, 1)
@@ -408,9 +409,10 @@ def _safety_gate(x: torch.Tensor, result: torch.Tensor, diag: Dict) -> torch.Ten
         fallback_weight = max(fallback_weight, 0.70)
 
     # Check 4: moderate/bright scene overexposure guard
-    # If image already has reasonable light (Y_in > 0.20) and restoration brightens by > 25%,
-    # blend back to prevent bleaching sunsets, silhouettes, or artistic exposures.
-    if Y_in > 0.20 and Y_out > Y_in * 1.25 and diag["scene_type"] in ("GOLDEN_HOUR", "DAYLIGHT", "OVERCAST_OUTDOOR"):
+    # GOLDEN_HOUR is explicitly excluded — we INTENTIONALLY want to lift the dark face/subject
+    # even if the global mean goes up by more than 25% (backlit portraits need this).
+    # Only apply to DAYLIGHT and OVERCAST where over-brightening is undesirable.
+    if Y_in > 0.20 and Y_out > Y_in * 1.25 and diag["scene_type"] in ("DAYLIGHT", "OVERCAST_OUTDOOR"):
         excess = (Y_out - Y_in * 1.15) / (Y_out + 1e-4)
         excess_weight = min(float(excess * 1.5), 0.85)
         print(f"[Safety] Overexposure prevention triggered ({Y_out:.3f} > {Y_in:.3f}*1.25). Blending back {excess_weight*100:.0f}%.")
@@ -605,9 +607,14 @@ def restore_image(model,
         return to_pil(result.squeeze(0).cpu().clamp(0, 1))
 
     # Luminance edge unsharp enhancement (selective: only in high-SNR regions L > 30, never sharpen shadow noise)
-    L_blur  = cv2.GaussianBlur(L, (0, 0), sigmaX=1.5)
-    high_snr_mask = np.clip((L - 30.0) / 30.0, 0.0, 1.0)
-    L_sharp = np.clip(L + 0.25 * (L - L_blur) * high_snr_mask, 0, 255)
+    # Skip for GOLDEN_HOUR — sunset portraits have soft natural edges (hair, sky gradient)
+    # that look artificial and harsh when sharpened.
+    if scene == "GOLDEN_HOUR":
+        L_sharp = L   # no sharpening — keep natural softness
+    else:
+        L_blur  = cv2.GaussianBlur(L, (0, 0), sigmaX=1.5)
+        high_snr_mask = np.clip((L - 30.0) / 30.0, 0.0, 1.0)
+        L_sharp = np.clip(L + 0.25 * (L - L_blur) * high_snr_mask, 0, 255)
 
     lab_clean = np.stack([L_sharp, np.clip(A_clean, 0, 255), np.clip(B_clean, 0, 255)], axis=2).astype(np.uint8)
     rgb_clean = cv2.cvtColor(lab_clean, cv2.COLOR_LAB2RGB).astype(np.float32) / 255.0
